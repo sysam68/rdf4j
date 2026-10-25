@@ -43,3 +43,28 @@ Please note that the RDF4J server in the docker container is not
 password-protected, nor is it configured to use HTTPS. 
 Additional configuration may be required for running the container in 
 production environments.
+
+## Trusted certificates (TLS behind an intranet reverse proxy)
+
+When the workbench reaches the RDF4J server through a reverse proxy that
+terminates TLS (for example an intranet proxy), the JVM inside the container
+must trust the certificate presented by that proxy.
+
+At container start, the entrypoint imports the certificate files (`.pem`,
+`.crt`, `.cer`, `.der`) found in `/usr/local/tomcat/certs` (Tomcat) or
+`/var/lib/jetty/certs` (Jetty) into a writable copy of the JDK truststore and
+points the JVM at it, so both the bundled public CAs and the extra
+certificates are trusted. PEM files that bundle several certificates are
+split automatically.
+
+Mount the directory containing the proxy CA (e.g. `rootCA.pem`) read-only:
+
+```
+services:
+  rdf4j:
+    volumes:
+      - ./certs:/usr/local/tomcat/certs:ro
+```
+
+Import can be disabled with the environment variable
+`IMPORT_CERTS_ENABLED=false`.

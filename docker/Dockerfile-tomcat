@@ -29,10 +29,20 @@ RUN	rm -rf /usr/local/tomcat/webapps/* && \
 COPY --from=temp /tmp/eclipse-rdf4j*/war/*.war /usr/local/tomcat/webapps/
 
 COPY tomcat/web.xml /usr/local/tomcat/conf/web.xml
+COPY tomcat/rdf4j-workbench.xml /usr/local/tomcat/conf/Catalina/localhost/rdf4j-workbench.xml
+COPY repositories/semantic-registry/config.ttl /opt/rdf4j/bootstrap/semantic-registry/config.ttl
+
+# Entrypoint that can import additional TLS certificates (e.g. from an
+# intranet reverse proxy that terminates TLS) into the JVM truststore.
+COPY tomcat/entrypoint.sh /usr/local/tomcat/entrypoint.sh
+RUN chmod +x /usr/local/tomcat/entrypoint.sh
 
 USER tomcat
 
 WORKDIR /usr/local/tomcat/
 
 EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/tomcat/entrypoint.sh"]
+CMD ["catalina.sh", "run"]
 

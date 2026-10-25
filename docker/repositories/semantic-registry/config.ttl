@@ -1,0 +1,16 @@
+# Copyright (c) 2026 Eclipse RDF4J contributors.
+# SPDX-License-Identifier: BSD-3-Clause
+
+@prefix config: <tag:rdf4j.org,2023:config/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<#semantic-registry> a config:Repository;
+	rdfs:label "Semantic Registry";
+	config:rep.id "semantic-registry";
+	config:rep.impl [
+		config:rep.type "openrdf:SailRepository";
+		config:sail.impl [
+			config:sail.type "openrdf:NativeStore";
+			config:native.tripleIndexes "spoc,posc"
+		]
+	] .

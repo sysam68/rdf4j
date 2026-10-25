@@ -20,6 +20,12 @@ ENV JAVA_OPTIONS="-Xmx2g -Dorg.eclipse.rdf4j.appdata.basedir=/var/rdf4j -Dorg.ec
 ENV JETTY_MODULES="server,bytebufferpool,threadpool,http,security,ee11-servlet,ee11-webapp,ee11-ext,ee11-plus,ee11-deploy,ee11-annotations,ee11-jsp,ee11-jstl"
 
 COPY --from=temp /tmp/eclipse-rdf4j*/war/*.war /var/lib/jetty/webapps/
+COPY repositories/semantic-registry/config.ttl /opt/rdf4j/bootstrap/semantic-registry/config.ttl
+
+# Entrypoint that can import additional TLS certificates (e.g. the CA of an
+# intranet reverse proxy that terminates TLS) into the JVM truststore, then
+# hands off to the stock Jetty entrypoint.
+COPY tomcat/entrypoint.sh /usr/local/jetty/entrypoint.sh
 
 # mimic Tomcat directories for data and logs
 
@@ -32,5 +38,10 @@ RUN	ln -s /usr/local/jetty/logs /var/lib/jetty/logs && \
 
 USER jetty
 
+ENV CERTS_DIR=/var/lib/jetty/certs
+
 EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/jetty/entrypoint.sh"]
+CMD ["/docker-entrypoint.sh", "java", "-jar", "/usr/local/jetty/start.jar"]
 
