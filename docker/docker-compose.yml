@@ -1,11 +1,20 @@
+name: ob-semanticLayer
 version: '2'
+
+x-common-env: &common-env
+  TZ: ${TZ}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATA_ROOT: ${DATA_ROOT:-/Users/sylvain/Development/data}
 services:
   rdf4j:
+    container_name: rdf4j-registry
     environment:
       - APP_LOGGING_LEVEL=${APP_LOGGING_LEVEL}
       - APP_SERVER=${APP_SERVER:-tomcat}
-    ports:
-      - 127.0.0.1:8080:8080
+      - RDF4J_WORKBENCH_DEFAULT_SERVER=${RDF4J_WORKBENCH_DEFAULT_SERVER:-http://rdf4j-registry:8080/rdf4j-server}
+      - JAVA_TOOL_OPTIONS=-Dorg.eclipse.rdf4j.workbench.accepted-server-prefixes=http://rdf4j-registry:8080/rdf4j-server
+    expose:
+      - 8080
     build:
       context: .
       dockerfile: Dockerfile-${APP_SERVER:-tomcat}
@@ -13,7 +22,29 @@ services:
     volumes:
       - rdf4j_data:/var/rdf4j
       - rdf4j_logs:/usr/local/${APP_SERVER:-tomcat}/logs
+      - rdf4j_certs:/usr/local/${APP_SERVER:-tomcat}/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: 1g
+    networks:
+      - front-net
+      - db-net
 
+networks:
+  front-net:
+    external: true
+    name: ob-net-front
+  db-net:
+    external: true
+    name: ob-net-db
 volumes:
   rdf4j_data:
   rdf4j_logs:
+  rdf4j_certs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${DATA_ROOT:-/Users/sylvain/Development/data}/certs
+      o: bind

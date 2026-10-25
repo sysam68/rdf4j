@@ -16,6 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,12 +28,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+
 import org.eclipse.rdf4j.query.QueryResultHandlerException;
 import org.eclipse.rdf4j.workbench.exceptions.MissingInitParameterException;
 import org.eclipse.rdf4j.workbench.support.TestServletConfig;
 import org.eclipse.rdf4j.workbench.util.BasicServletConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.w3c.dom.Element;
 
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
@@ -41,6 +46,56 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 class WorkbenchGatewayTest {
+
+	@Test
+	void tomcatDockerContextHonorsForwardedHeaders() throws Exception {
+		Path repositoryRoot = Path.of("..", "..").toAbsolutePath().normalize();
+		Path contextConfig = repositoryRoot.resolve("docker/tomcat/rdf4j-workbench.xml");
+
+		assertThat(contextConfig).isRegularFile();
+
+		Element valve = (Element) DocumentBuilderFactory.newInstance()
+				.newDocumentBuilder()
+				.parse(contextConfig.toFile())
+				.getElementsByTagName("Valve")
+				.item(0);
+		assertThat(valve).isNotNull();
+		assertThat(valve.getAttribute("className"))
+				.isEqualTo("org.apache.catalina.valves.RemoteIpValve");
+		assertThat(valve.getAttribute("remoteIpHeader")).isEqualTo("x-forwarded-for");
+		assertThat(valve.getAttribute("protocolHeader")).isEqualTo("x-forwarded-proto");
+		assertThat(valve.getAttribute("protocolHeaderHttpsValue")).isEqualTo("https");
+		assertThat(valve.getAttribute("hostHeader")).isEqualTo("x-forwarded-host");
+		assertThat(valve.getAttribute("portHeader")).isEqualTo("x-forwarded-port");
+
+		String dockerfile = Files.readString(repositoryRoot.resolve("docker/Dockerfile-tomcat"));
+		assertThat(dockerfile).contains(
+				"COPY tomcat/rdf4j-workbench.xml /usr/local/tomcat/conf/Catalina/localhost/rdf4j-workbench.xml");
+	}
+
+	@Test
+	void tomcatDockerImageBootstrapsSemanticRegistry() throws Exception {
+		Path repositoryRoot = Path.of("..", "..").toAbsolutePath().normalize();
+		Path repositoryConfig = repositoryRoot.resolve("docker/repositories/semantic-registry/config.ttl");
+
+		assertThat(repositoryConfig).isRegularFile();
+		assertThat(Files.readString(repositoryConfig))
+				.contains("config:rep.id \"semantic-registry\"")
+				.contains("rdfs:label \"Semantic Registry\"")
+				.contains("config:rep.type \"openrdf:SailRepository\"")
+				.contains("config:sail.type \"openrdf:NativeStore\"");
+
+		String tomcatDockerfile = Files.readString(repositoryRoot.resolve("docker/Dockerfile-tomcat"));
+		assertThat(tomcatDockerfile).contains(
+				"COPY repositories/semantic-registry/config.ttl /opt/rdf4j/bootstrap/semantic-registry/config.ttl");
+
+		String jettyDockerfile = Files.readString(repositoryRoot.resolve("docker/Dockerfile-jetty"));
+		assertThat(jettyDockerfile).contains(
+				"COPY repositories/semantic-registry/config.ttl /opt/rdf4j/bootstrap/semantic-registry/config.ttl");
+
+		String entrypoint = Files.readString(repositoryRoot.resolve("docker/tomcat/entrypoint.sh"));
+		assertThat(entrypoint).contains("install_repository_if_missing \"semantic-registry\"");
+	}
 
 	@Test
 	void initValidatesRequiredParametersAndServerMode() throws Exception {
