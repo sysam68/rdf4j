@@ -26,7 +26,10 @@ set -e
 install_repository_if_missing() {
     repository_id="$1"
     source_config="/opt/rdf4j/bootstrap/$repository_id/config.ttl"
-    destination_config="/var/rdf4j/repositories/$repository_id/config.ttl"
+    # The rdf4j-server webapp reads repository configs from <dataDir>/repositories,
+    # where dataDir resolves to /var/rdf4j/server: CATALINA_OPTS sets the appdata
+    # basedir to /var/rdf4j and AppConfiguration uses the "Server" application id.
+    destination_config="/var/rdf4j/server/repositories/$repository_id/config.ttl"
 
     [ -f "$source_config" ] || return
     [ -f "$destination_config" ] && return
